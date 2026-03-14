@@ -59,6 +59,19 @@ create table if not exists vas_people (
   created_at timestamptz default now()
 );
 
+-- Projects
+create table if not exists vas_projects (
+  id uuid primary key default gen_random_uuid(),
+  hotel_id uuid references vas_hotels(id),
+  name text not null,
+  theme text not null,
+  person_id uuid references vas_people(id),
+  scope_type text not null,
+  scope_id uuid,
+  status text default 'pending',
+  created_at timestamptz default now()
+);
+
 -- Generations
 create table if not exists vas_generations (
   id uuid primary key default gen_random_uuid(),
@@ -66,6 +79,7 @@ create table if not exists vas_generations (
   hotel_id uuid references vas_hotels(id),
   theme text not null,
   person_id uuid references vas_people(id),
+  project_id uuid references vas_projects(id),
   prompt text,
   result_url text,
   status text default 'pending',
@@ -80,6 +94,7 @@ alter table vas_spaces enable row level security;
 alter table vas_photos enable row level security;
 alter table vas_people enable row level security;
 alter table vas_generations enable row level security;
+alter table vas_projects enable row level security;
 
 -- Allow service role full access (API routes use service role key)
 create policy "Service role full access" on vas_hotels for all using (true);
@@ -89,3 +104,4 @@ create policy "Service role full access" on vas_spaces for all using (true);
 create policy "Service role full access" on vas_photos for all using (true);
 create policy "Service role full access" on vas_people for all using (true);
 create policy "Service role full access" on vas_generations for all using (true);
+create policy "Service role full access" on vas_projects for all using (true);
