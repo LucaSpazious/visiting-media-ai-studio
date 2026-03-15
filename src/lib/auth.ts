@@ -50,58 +50,100 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === 'google') {
-        const supabase = getServiceSupabase();
-        const { data: existingUser } = await supabase
-          .from('vas_users')
-          .select('*')
-          .eq('email', user.email!)
-          .single();
+        try {
+          if (!user.email) {
+            console.error('[NextAuth signIn] Google user has no email');
+            return true; // still allow sign-in, jwt callback will handle missing DB user
+          }
 
-        if (!existingUser) {
-          // Auto-assign first available hotel for demo convenience
-          const { data: firstHotel } = await supabase
-            .from('vas_hotels')
+          const supabase = getServiceSupabase();
+          const { data: existingUser, error: selectError } = await supabase
+            .from('vas_users')
             .select('id')
-            .order('created_at')
-            .limit(1)
+            .eq('email', user.email)
             .single();
 
-          await supabase.from('vas_users').insert({
-            id: crypto.randomUUID(),
-            email: user.email!,
-            name: user.name,
-            role: 'hotel_user',
-            hotel_id: firstHotel?.id ?? null,
-          });
+          if (selectError && selectError.code !== 'PGRST116') {
+            // PGRST116 = no rows found, which is expected for new users
+            console.error('[NextAuth signIn] DB select error:', selectError.message);
+          }
+
+          if (!existingUser) {
+            const { data: firstHotel } = await supabase
+              .from('vas_hotels')
+              .select('id')
+              .order('created_at')
+              .limit(1)
+              .single();
+
+            const { error: insertError } = await supabase.from('vas_users').insert({
+              id: crypto.randomUUID(),
+              email: user.email,
+              name: user.name ?? user.email.split('@')[0],
+              role: 'hotel_user',
+              hotel_id: firstHotel?.id ?? null,
+            });
+
+            if (insertError) {
+              console.error('[NextAuth signIn] DB insert error:', insertError.message);
+              // Don't block sign-in — user just won't have a DB record yet
+            }
+          }
+        } catch (err) {
+          console.error('[NextAuth signIn] Unexpected error:', err);
+          // Never block sign-in due to DB errors
         }
       }
       return true;
     },
     async jwt({ token, user }) {
-      if (user) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        token.role = (user as any).role as string;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        token.hotel_id = (user as any).hotel_id as string | null;
-      } else if (token.email) {
-        const supabase = getServiceSupabase();
-        const { data: dbUser } = await supabase
-          .from('vas_users')
-          .select('role, hotel_id')
-          .eq('email', token.email)
-          .single();
-        if (dbUser) {
-          token.role = dbUser.role;
-          token.hotel_id = dbUser.hotel_id;
+      try {
+        if (user) {
+          // Credentials provider includes role/hotel_id; Google provider does not
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const u = user as any;
+          if (u.role) {
+            token.role = u.role;
+            token.hotel_id = u.hotel_id;
+          }
+        }
+
+        // Fetch role from DB if not yet in token (Google OAuth users on first sign-in)
+        if (!token.role && token.email) {
+          const supabase = getServiceSupabase();
+          const { data: dbUser } = await supabase
+            .from('vas_users')
+            .select('role, hotel_id')
+            .eq('email', token.email)
+            .single();
+          if (dbUser) {
+            token.role = dbUser.role;
+            token.hotel_id = dbUser.hotel_id;
+          } else {
+            // User not in DB yet — assign defaults
+            token.role = 'hotel_user';
+            token.hotel_id = null;
+          }
+        }
+      } catch (err) {
+        console.error('[NextAuth jwt] Error:', err);
+        // Ensure token always has a role fallback
+        if (!token.role) {
+          token.role = 'hotel_user';
+          token.hotel_id = null;
         }
       }
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
-        (session.user as Record<string, unknown>).role = token.role;
-        (session.user as Record<string, unknown>).hotel_id = token.hotel_id;
-        (session.user as Record<string, unknown>).id = token.sub;
+      try {
+        if (session.user) {
+          (session.user as Record<string, unknown>).role = token.role || 'hotel_user';
+          (session.user as Record<string, unknown>).hotel_id = token.hotel_id ?? null;
+          (session.user as Record<string, unknown>).id = token.sub;
+        }
+      } catch (err) {
+        console.error('[NextAuth session] Error:', err);
       }
       return session;
     },
@@ -112,4 +154,5 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
   },
+  debug: process.env.NODE_ENV === 'development',
 };
