@@ -27,10 +27,15 @@ async function callFalWithRetry(
       return generatedUrl;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
+      console.error(`[Generate] fal.ai attempt ${attempt + 1}/${retries + 1} failed:`, {
+        message: lastError.message,
+        name: lastError.name,
+        fullError: JSON.stringify(err, Object.getOwnPropertyNames(err as object)),
+      });
 
       // Don't retry on validation/auth errors (4xx)
       const errMsg = lastError.message.toLowerCase();
-      if (errMsg.includes('unauthorized') || errMsg.includes('invalid') || errMsg.includes('bad request')) {
+      if (errMsg.includes('unauthorized') || errMsg.includes('forbidden') || errMsg.includes('invalid') || errMsg.includes('bad request')) {
         throw lastError;
       }
 
@@ -108,6 +113,11 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Generation failed';
+    console.error('[Generate] Final error:', {
+      message: errorMessage,
+      falKeyPresent: !!process.env.FAL_KEY,
+      falKeyPrefix: process.env.FAL_KEY?.substring(0, 8) + '...',
+    });
 
     await supabase
       .from('vas_generations')
