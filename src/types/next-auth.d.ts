@@ -9,6 +9,7 @@ declare module 'next-auth' {
       image?: string | null;
       role: string;
       hotel_id: string | null;
+      accessToken?: string;
     };
   }
 }
@@ -17,5 +18,6 @@ declare module 'next-auth/jwt' {
   interface JWT {
     role?: string;
     hotel_id?: string | null;
+    accessToken?: string;
   }
 }

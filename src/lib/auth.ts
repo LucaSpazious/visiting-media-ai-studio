@@ -9,6 +9,12 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          scope: 'openid email profile https://www.googleapis.com/auth/drive.readonly',
+          access_type: 'online',
+        },
+      },
     }),
     CredentialsProvider({
       name: 'credentials',
@@ -62,7 +68,10 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
+      if (account?.access_token) {
+        token.accessToken = account.access_token;
+      }
       if (user) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         token.role = (user as any).role as string;
@@ -87,6 +96,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as Record<string, unknown>).role = token.role;
         (session.user as Record<string, unknown>).hotel_id = token.hotel_id;
         (session.user as Record<string, unknown>).id = token.sub;
+        (session.user as Record<string, unknown>).accessToken = token.accessToken;
       }
       return session;
     },

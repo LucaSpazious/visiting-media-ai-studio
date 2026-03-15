@@ -4,6 +4,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import HotelCard from './HotelCard';
 
 interface Hotel {
   id: string;
@@ -15,16 +16,29 @@ interface Hotel {
   status: string;
 }
 
+interface HotelStats {
+  totalPhotos: number;
+  totalGenerations: number;
+  totalSpaces: number;
+  spacesWithPhotos: number;
+  recentGenerations: {
+    id: string;
+    resultUrl: string;
+    originalUrl: string | null;
+    filename: string | null;
+    createdAt: string;
+  }[];
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<Record<string, HotelStats>>({});
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    }
+    if (status === 'unauthenticated') router.push('/login');
   }, [status, router]);
 
   useEffect(() => {
@@ -32,16 +46,31 @@ export default function DashboardPage() {
       try {
         const res = await fetch('/api/hotels');
         if (res.ok) {
-          const data = await res.json();
+          const data: Hotel[] = await res.json();
           setHotels(data);
+          const statsEntries = await Promise.all(
+            data.map(async (hotel) => {
+              try {
+                const statsRes = await fetch(`/api/dashboard-stats?hotelId=${hotel.id}`);
+                if (statsRes.ok) {
+                  const hotelStats: HotelStats = await statsRes.json();
+                  return [hotel.id, hotelStats] as const;
+                }
+              } catch { /* skip */ }
+              return [hotel.id, null] as const;
+            })
+          );
+          const statsMap: Record<string, HotelStats> = {};
+          for (const [id, s] of statsEntries) {
+            if (s) statsMap[id] = s;
+          }
+          setStats(statsMap);
         }
       } finally {
         setLoading(false);
       }
     }
-    if (status === 'authenticated') {
-      fetchHotels();
-    }
+    if (status === 'authenticated') fetchHotels();
   }, [status]);
 
   if (status === 'loading' || !session) {
@@ -67,10 +96,7 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-600">{session.user.email}</span>
-              <Link
-                href="/settings"
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
+              <Link href="/settings" className="text-sm text-gray-600 hover:text-gray-900">
                 Settings
               </Link>
               <button
@@ -91,11 +117,16 @@ export default function DashboardPage() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[1, 2].map((i) => (
               <div key={i} className="bg-white rounded-xl p-6 animate-pulse">
                 <div className="h-6 bg-gray-200 rounded w-3/4 mb-3" />
-                <div className="h-4 bg-gray-100 rounded w-1/2" />
+                <div className="h-4 bg-gray-100 rounded w-1/2 mb-6" />
+                <div className="grid grid-cols-3 gap-3">
+                  {[1, 2, 3].map((j) => (
+                    <div key={j} className="h-16 bg-gray-100 rounded-lg" />
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -103,39 +134,13 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl p-12 text-center">
             <p className="text-gray-500">No hotels found.</p>
             {userRole === 'vm_admin' && (
-              <p className="text-sm text-gray-400 mt-2">
-                Hotels will appear here once created.
-              </p>
+              <p className="text-sm text-gray-400 mt-2">Hotels will appear here once created.</p>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {hotels.map((hotel) => (
-              <Link
-                key={hotel.id}
-                href={`/ai-studio/${hotel.slug}`}
-                className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-100 group"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {hotel.name}
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {hotel.location}{hotel.country ? `, ${hotel.country}` : ''}
-                    </p>
-                  </div>
-                  {hotel.star_rating && (
-                    <span className="text-sm font-medium text-amber-600">
-                      {'★'.repeat(hotel.star_rating)}
-                    </span>
-                  )}
-                </div>
-                <div className="mt-4 flex items-center gap-2">
-                  <span className={`inline-block w-2 h-2 rounded-full ${hotel.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  <span className="text-xs text-gray-400 capitalize">{hotel.status}</span>
-                </div>
-              </Link>
+              <HotelCard key={hotel.id} hotel={hotel} stats={stats[hotel.id]} />
             ))}
           </div>
         )}

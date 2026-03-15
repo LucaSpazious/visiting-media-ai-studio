@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { THEMES, Theme } from '@/lib/themes';
@@ -9,12 +9,14 @@ import { Hotel, Photo, Person, ScopeLevel, ActiveTab, GenerationResult } from '.
 import PhotosTab from './PhotosTab';
 import GenerateTab from './GenerateTab';
 import FloatingSelectionBar from './FloatingSelectionBar';
+import DriveImportModal from './DriveImportModal';
 import { useToast } from '@/components/Toast';
 
 export default function AIStudioPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const hotelSlug = params.hotelSlug as string;
   const { toast } = useToast();
 
@@ -23,7 +25,9 @@ export default function AIStudioPage() {
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('photos');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(
+    searchParams.get('tab') === 'generate' ? 'generate' : 'photos'
+  );
 
   // Scope selection state
   const [scopeLevel, setScopeLevel] = useState<ScopeLevel>('hotel');
@@ -44,6 +48,9 @@ export default function AIStudioPage() {
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+
+  // Drive import
+  const [driveModalOpen, setDriveModalOpen] = useState(false);
 
   // Theme + person + selection state (Generate tab)
   const [selectedTheme, setSelectedTheme] = useState<Theme | null>(null);
@@ -388,10 +395,45 @@ export default function AIStudioPage() {
   }
 
   // ---- Google Drive Import ----
-  async function handleDriveImport() {
+  function handleDriveImport() {
     if (!hotel || !session) return;
-    const googleAuthUrl = `/api/auth/signin/google?callbackUrl=${encodeURIComponent(window.location.pathname)}&scope=openid email profile https://www.googleapis.com/auth/drive.readonly`;
-    window.location.href = googleAuthUrl;
+    if (!session.user.accessToken) {
+      toast('Sign in with Google to use Drive import', 'info');
+      return;
+    }
+    if (!selectedSpaceId) {
+      toast('Select a space first to import photos', 'info');
+      return;
+    }
+    setDriveModalOpen(true);
+  }
+
+  async function handleDriveImportFiles(fileIds: string[]) {
+    if (!hotel || !selectedSpaceId) return;
+    const spaceType = hotel.space_types.find((st) =>
+      st.vas_spaces.some((s) => s.id === selectedSpaceId)
+    );
+    if (!spaceType) return;
+
+    const res = await fetch('/api/drive/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileIds,
+        hotelId: hotel.id,
+        spaceId: selectedSpaceId,
+        spaceTypeId: spaceType.id,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || 'Import failed', 'error');
+      return;
+    }
+
+    toast(`${data.successCount} of ${data.total} photos imported`, data.successCount > 0 ? 'success' : 'error');
+    await fetchPhotos(hotel.id, undefined, selectedSpaceId);
   }
 
   // ---- Batch Generation ----
@@ -855,6 +897,13 @@ export default function AIStudioPage() {
           onEditWithAI={() => setActiveTab('generate')}
         />
       )}
+
+      {/* Drive import modal */}
+      <DriveImportModal
+        open={driveModalOpen}
+        onClose={() => setDriveModalOpen(false)}
+        onImport={handleDriveImportFiles}
+      />
     </div>
   );
 }
