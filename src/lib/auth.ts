@@ -4,6 +4,11 @@ import GoogleProvider from 'next-auth/providers/google';
 import { compare } from 'bcryptjs';
 import { getServiceSupabase } from './supabase';
 
+// Ensure NEXTAUTH_URL is set on Vercel (VERCEL_URL lacks protocol)
+if (!process.env.NEXTAUTH_URL && process.env.VERCEL_URL) {
+  process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`;
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
