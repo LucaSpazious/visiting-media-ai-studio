@@ -1,19 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { getServiceSupabase } from '@/lib/supabase';
+import { authorizeHotelAccess } from '@/lib/authorization';
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const { searchParams } = new URL(req.url);
   const hotelId = searchParams.get('hotelId');
   if (!hotelId) {
     return NextResponse.json({ error: 'hotelId required' }, { status: 400 });
   }
+
+  const auth = await authorizeHotelAccess(hotelId);
+  if ('error' in auth) return auth.error;
 
   const supabase = getServiceSupabase();
   const { data, error } = await supabase
@@ -30,15 +27,13 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const { hotelId, name, theme, personId, scopeType, scopeId } = await req.json();
   if (!hotelId || !name || !theme || !scopeType) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
   }
+
+  const auth = await authorizeHotelAccess(hotelId);
+  if ('error' in auth) return auth.error;
 
   const supabase = getServiceSupabase();
   const { data, error } = await supabase

@@ -1,27 +1,63 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { fal } from '@fal-ai/client';
 import { getServiceSupabase } from '@/lib/supabase';
+import { authorizeHotelAccess } from '@/lib/authorization';
 
 export const maxDuration = 120;
+
+const MAX_RETRIES = 2;
 
 fal.config({
   credentials: process.env.FAL_KEY,
 });
 
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+async function callFalWithRetry(
+  input: Record<string, unknown>,
+  retries: number = MAX_RETRIES
+): Promise<string> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const result = await fal.subscribe('fal-ai/flux-kontext/max', { input });
+
+      const resultData = result.data as { images?: Array<{ url: string }> };
+      const generatedUrl = resultData?.images?.[0]?.url;
+
+      if (!generatedUrl) {
+        throw new Error('fal.ai returned no image in response');
+      }
+
+      return generatedUrl;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      // Don't retry on validation/auth errors (4xx)
+      const errMsg = lastError.message.toLowerCase();
+      if (errMsg.includes('unauthorized') || errMsg.includes('invalid') || errMsg.includes('bad request')) {
+        throw lastError;
+      }
+
+      // Wait before retry (exponential backoff: 1s, 2s)
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+      }
+    }
   }
 
+  throw lastError || new Error('Generation failed after retries');
+}
+
+export async function POST(req: Request) {
   const { photoId, hotelId, theme, prompt, personImageUrl, personId, imageUrl, projectId } =
     await req.json();
 
   if (!photoId || !hotelId || !theme || !prompt || !imageUrl) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
   }
+
+  const auth = await authorizeHotelAccess(hotelId);
+  if ('error' in auth) return auth.error;
 
   const supabase = getServiceSupabase();
 
@@ -45,30 +81,21 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Build input for FLUX.1 Kontext
+    // Build input for FLUX.1 Kontext [max]
     const input: Record<string, unknown> = {
       prompt,
       image_url: imageUrl,
     };
 
-    // If person image provided, include it
+    // If person image provided, include it as multi-image input
     if (personImageUrl) {
       input.prompt = `${prompt}. Include the person from the reference image naturally in the scene.`;
       input.image_url = [imageUrl, personImageUrl];
     }
 
-    const result = await fal.subscribe('fal-ai/flux-kontext/max', {
-      input,
-    });
+    const generatedUrl = await callFalWithRetry(input);
 
-    const resultData = result.data as { images?: Array<{ url: string }> };
-    const generatedUrl = resultData?.images?.[0]?.url;
-
-    if (!generatedUrl) {
-      throw new Error('No image generated');
-    }
-
-    // Update generation record
+    // Update generation record with result
     await supabase
       .from('vas_generations')
       .update({ result_url: generatedUrl, status: 'done' })
@@ -80,13 +107,15 @@ export async function POST(req: Request) {
       status: 'done',
     });
   } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Generation failed';
+
     await supabase
       .from('vas_generations')
       .update({ status: 'error' })
       .eq('id', generation.id);
 
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Generation failed' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

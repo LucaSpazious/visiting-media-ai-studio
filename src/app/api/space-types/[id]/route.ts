@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { getServiceSupabase } from '@/lib/supabase';
+import { authorizeByResourceId } from '@/lib/authorization';
 
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const auth = await authorizeByResourceId('vas_space_types', params.id);
+  if ('error' in auth) return auth.error;
 
   const { name } = await req.json();
   const supabase = getServiceSupabase();
@@ -32,12 +29,10 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const auth = await authorizeByResourceId('vas_space_types', params.id);
+  if ('error' in auth) return auth.error;
 
-  if (session.user.role === 'hotel_user') {
+  if (auth.session.user.role === 'hotel_user') {
     return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
   }
 

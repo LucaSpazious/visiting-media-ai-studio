@@ -9,17 +9,20 @@ import { Hotel, Photo, Person, ScopeLevel, ActiveTab, GenerationResult } from '.
 import PhotosTab from './PhotosTab';
 import GenerateTab from './GenerateTab';
 import FloatingSelectionBar from './FloatingSelectionBar';
+import { useToast } from '@/components/Toast';
 
 export default function AIStudioPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
   const hotelSlug = params.hotelSlug as string;
+  const { toast } = useToast();
 
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('photos');
 
   // Scope selection state
@@ -57,13 +60,18 @@ export default function AIStudioPage() {
   }, [status, router]);
 
   const fetchPhotos = useCallback(async (hotelId: string, spaceTypeId?: string, spaceId?: string) => {
+    setLoadingPhotos(true);
     const p = new URLSearchParams({ hotelId });
     if (spaceId) p.set('spaceId', spaceId);
     else if (spaceTypeId) p.set('spaceTypeId', spaceTypeId);
 
-    const res = await fetch(`/api/photos?${p}`);
-    if (res.ok) {
-      setPhotos(await res.json());
+    try {
+      const res = await fetch(`/api/photos?${p}`);
+      if (res.ok) {
+        setPhotos(await res.json());
+      }
+    } finally {
+      setLoadingPhotos(false);
     }
   }, []);
 
@@ -228,6 +236,7 @@ export default function AIStudioPage() {
     setUploading(false);
     setUploadProgress(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    toast(`${fileArray.length} photo${fileArray.length > 1 ? 's' : ''} uploaded`, 'success');
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -241,8 +250,13 @@ export default function AIStudioPage() {
   // ---- Photo Delete ----
   async function handleDeletePhoto(photoId: string) {
     if (!confirm('Delete this photo?')) return;
-    await fetch(`/api/photos?id=${photoId}`, { method: 'DELETE' });
+    const res = await fetch(`/api/photos?id=${photoId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      toast('Failed to delete photo', 'error');
+      return;
+    }
     setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+    toast('Photo deleted', 'success');
     setSelectedPhotoIds((prev) => {
       const next = new Set(prev);
       next.delete(photoId);
@@ -494,8 +508,21 @@ export default function AIStudioPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'done' }),
       });
+
+      // Toast with results summary — count actual successes from latest state
+      setGenerationResults((prev) => {
+        const successCount = prev.filter((r) => r.status === 'done').length;
+        const failCount = prev.filter((r) => r.status === 'error').length;
+        if (failCount > 0) {
+          toast(`${successCount} generated, ${failCount} failed`, failCount === prev.length ? 'error' : 'info');
+        } else {
+          toast(`${successCount} photo${successCount > 1 ? 's' : ''} generated successfully`, 'success');
+        }
+        return prev;
+      });
     } catch {
       setError('Generation failed. Could not create project.');
+      toast('Generation failed', 'error');
     } finally {
       setGenerating(false);
     }
@@ -782,6 +809,7 @@ export default function AIStudioPage() {
               <PhotosTab
                 hotel={hotel}
                 photos={photos}
+                loadingPhotos={loadingPhotos}
                 scopeLevel={scopeLevel}
                 selectedTypeId={selectedTypeId}
                 selectedSpaceId={selectedSpaceId}

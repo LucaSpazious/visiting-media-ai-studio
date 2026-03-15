@@ -7,6 +7,7 @@ import { Hotel, Photo, SpaceType } from './types';
 interface PhotosTabProps {
   hotel: Hotel;
   photos: Photo[];
+  loadingPhotos: boolean;
   scopeLevel: 'hotel' | 'type' | 'space';
   selectedTypeId: string;
   selectedSpaceId: string;
@@ -28,6 +29,7 @@ interface PhotosTabProps {
 export default function PhotosTab({
   hotel,
   photos,
+  loadingPhotos,
   scopeLevel,
   selectedTypeId,
   selectedSpaceId,
@@ -134,12 +136,16 @@ export default function PhotosTab({
         <h2 className="text-lg font-semibold text-gray-900">
           {scopeName}{' '}
           <span className="text-gray-400 font-normal text-sm">
-            ({photos.length} photo{photos.length !== 1 ? 's' : ''})
-            {selectedPhotoIds.size > 0 &&
-              ` — ${selectedPhotoIds.size} selected`}
+            {!loadingPhotos && (
+              <>
+                ({photos.length} photo{photos.length !== 1 ? 's' : ''})
+                {selectedPhotoIds.size > 0 &&
+                  ` — ${selectedPhotoIds.size} selected`}
+              </>
+            )}
           </span>
         </h2>
-        {photos.length > 0 && (
+        {photos.length > 0 && !loadingPhotos && (
           <div className="flex items-center gap-2">
             <button
               onClick={onSelectAll}
@@ -159,9 +165,25 @@ export default function PhotosTab({
         )}
       </div>
 
-      {/* Photo grid or empty state */}
-      {photos.length === 0 ? (
-        <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-100">
+      {/* Loading skeleton */}
+      {loadingPhotos ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
+              <div className="aspect-video bg-gray-200 animate-pulse" />
+            </div>
+          ))}
+        </div>
+      ) : photos.length === 0 ? (
+        /* Empty state */
+        <div
+          className={`bg-white rounded-xl p-12 text-center shadow-sm border-2 transition-colors ${
+            scopeLevel === 'space' && dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-100 border-dashed'
+          }`}
+          onDragOver={scopeLevel === 'space' ? (e) => { e.preventDefault(); onDragOver(); } : undefined}
+          onDragLeave={scopeLevel === 'space' ? onDragLeave : undefined}
+          onDrop={scopeLevel === 'space' ? onDrop : undefined}
+        >
           <svg
             className="w-16 h-16 mx-auto text-gray-200 mb-4"
             fill="none"
@@ -175,11 +197,13 @@ export default function PhotosTab({
               d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
             />
           </svg>
-          <p className="text-gray-500">No photos yet</p>
+          <p className="text-gray-500">
+            {scopeLevel === 'space' ? 'No photos in this space' : 'No photos yet'}
+          </p>
           <p className="text-gray-400 text-sm mt-1">
             {scopeLevel === 'space'
-              ? 'Drag & drop photos above to upload'
-              : 'Select a space to upload photos'}
+              ? 'Drag & drop photos here to upload'
+              : 'Select a space from the sidebar to upload photos'}
           </p>
         </div>
       ) : (

@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { getServiceSupabase } from '@/lib/supabase';
+import { authorizeByResourceId } from '@/lib/authorization';
 
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const auth = await authorizeByResourceId('vas_projects', params.id);
+  if ('error' in auth) return auth.error;
 
   const supabase = getServiceSupabase();
   const { data, error } = await supabase
@@ -30,10 +27,8 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const auth = await authorizeByResourceId('vas_projects', params.id);
+  if ('error' in auth) return auth.error;
 
   const body = await req.json();
   const supabase = getServiceSupabase();

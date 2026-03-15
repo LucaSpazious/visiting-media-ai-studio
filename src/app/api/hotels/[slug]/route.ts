@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { getServiceSupabase } from '@/lib/supabase';
+import { authorizeHotelAccess } from '@/lib/authorization';
 
 export async function GET(
   _req: Request,
   { params }: { params: { slug: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const supabase = getServiceSupabase();
 
+  // Fetch hotel first to get its ID
   const { data: hotel, error } = await supabase
     .from('vas_hotels')
     .select('*')
@@ -23,6 +18,10 @@ export async function GET(
   if (error || !hotel) {
     return NextResponse.json({ error: 'Hotel not found' }, { status: 404 });
   }
+
+  // Authorize access to this hotel
+  const auth = await authorizeHotelAccess(hotel.id);
+  if ('error' in auth) return auth.error;
 
   // Get space types with spaces
   const { data: spaceTypes } = await supabase

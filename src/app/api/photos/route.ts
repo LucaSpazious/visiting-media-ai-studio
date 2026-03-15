@@ -1,22 +1,18 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { getServiceSupabase } from '@/lib/supabase';
+import { authorizeHotelAccess, authorizeByResourceId } from '@/lib/authorization';
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const { searchParams } = new URL(req.url);
   const hotelId = searchParams.get('hotelId');
   if (!hotelId) {
     return NextResponse.json({ error: 'hotelId required' }, { status: 400 });
   }
 
-  const supabase = getServiceSupabase();
+  const auth = await authorizeHotelAccess(hotelId);
+  if ('error' in auth) return auth.error;
 
+  const supabase = getServiceSupabase();
   const spaceTypeId = searchParams.get('spaceTypeId');
   const spaceId = searchParams.get('spaceId');
 
@@ -42,15 +38,13 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const { hotelId, spaceId, spaceTypeId, originalUrl, filename } = await req.json();
   if (!hotelId || !spaceId || !spaceTypeId || !originalUrl || !filename) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
   }
+
+  const auth = await authorizeHotelAccess(hotelId);
+  if ('error' in auth) return auth.error;
 
   const supabase = getServiceSupabase();
   const { data, error } = await supabase
@@ -74,19 +68,17 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  if (session.user.role === 'hotel_user') {
-    return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
-  }
-
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
   if (!id) {
     return NextResponse.json({ error: 'id required' }, { status: 400 });
+  }
+
+  const auth = await authorizeByResourceId('vas_photos', id);
+  if ('error' in auth) return auth.error;
+
+  if (auth.session.user.role === 'hotel_user') {
+    return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
   }
 
   const supabase = getServiceSupabase();

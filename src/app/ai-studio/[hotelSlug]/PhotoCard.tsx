@@ -81,9 +81,6 @@ export default function PhotoCard({
           </button>
         )}
       </div>
-      <div className="p-2">
-        <p className="text-xs text-gray-500 truncate">{photo.filename}</p>
-      </div>
     </div>
   );
 }
