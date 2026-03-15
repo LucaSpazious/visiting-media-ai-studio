@@ -25,10 +25,12 @@ export default function DriveImportModal({ open, onClose, onImport }: DriveImpor
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   const fetchFiles = useCallback(async (pageToken?: string, query?: string) => {
     setLoading(true);
     setError('');
+    setNeedsAuth(false);
     try {
       const params = new URLSearchParams();
       if (pageToken) params.set('pageToken', pageToken);
@@ -36,6 +38,11 @@ export default function DriveImportModal({ open, onClose, onImport }: DriveImpor
 
       const res = await fetch(`/api/drive/files?${params}`);
       const data = await res.json();
+
+      if (res.status === 401 && !data.files) {
+        setNeedsAuth(true);
+        return;
+      }
 
       if (!res.ok) {
         setError(data.error || 'Failed to load files');
@@ -61,9 +68,15 @@ export default function DriveImportModal({ open, onClose, onImport }: DriveImpor
       setSelectedIds(new Set());
       setSearch('');
       setNextPageToken(null);
+      setNeedsAuth(false);
       fetchFiles();
     }
   }, [open, fetchFiles]);
+
+  function connectDrive() {
+    const returnTo = window.location.pathname;
+    window.location.href = `/api/auth/google-drive?returnTo=${encodeURIComponent(returnTo)}`;
+  }
 
   function toggleSelect(fileId: string) {
     setSelectedIds((prev) => {
@@ -106,68 +119,88 @@ export default function DriveImportModal({ open, onClose, onImport }: DriveImpor
           </button>
         </div>
 
-        <div className="px-6 py-3 border-b border-luxury-border">
-          <div className="flex gap-2">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Search images..."
-              className="flex-1 text-sm px-3 py-2 bg-luxury-black border border-luxury-border rounded-lg text-cream placeholder-cream-dark"
-            />
+        {needsAuth ? (
+          <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+            <svg className="w-12 h-12 text-cream-dark/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+            </svg>
+            <p className="text-cream-muted mb-1">Google Drive access required</p>
+            <p className="text-cream-dark text-sm mb-6 text-center max-w-sm">
+              Authorize read-only access to browse and import photos from your Google Drive.
+            </p>
             <button
-              onClick={handleSearch}
-              className="text-sm px-4 py-2 bg-luxury-hover text-cream rounded-lg hover:bg-luxury-border transition-colors"
+              onClick={connectDrive}
+              className="px-6 py-2.5 bg-gold text-luxury-black rounded-lg font-semibold text-sm tracking-wide hover:bg-gold-light transition-all"
             >
-              Search
+              Connect Google Drive
             </button>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="px-6 py-3 border-b border-luxury-border">
+              <div className="flex gap-2">
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  placeholder="Search images..."
+                  className="flex-1 text-sm px-3 py-2 bg-luxury-black border border-luxury-border rounded-lg text-cream placeholder-cream-dark"
+                />
+                <button
+                  onClick={handleSearch}
+                  className="text-sm px-4 py-2 bg-luxury-hover text-cream rounded-lg hover:bg-luxury-border transition-colors"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          <DriveFileGrid
-            files={files}
-            selectedIds={selectedIds}
-            loading={loading}
-            error={error}
-            nextPageToken={nextPageToken}
-            onToggleSelect={toggleSelect}
-            onLoadMore={() => fetchFiles(nextPageToken || undefined, search || undefined)}
-          />
-        </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <DriveFileGrid
+                files={files}
+                selectedIds={selectedIds}
+                loading={loading}
+                error={error}
+                nextPageToken={nextPageToken}
+                onToggleSelect={toggleSelect}
+                onLoadMore={() => fetchFiles(nextPageToken || undefined, search || undefined)}
+              />
+            </div>
 
-        <div className="flex items-center justify-between px-6 py-4 border-t border-luxury-border">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-cream-dark">{selectedIds.size} selected</span>
-            {files.length > 0 && (
-              <button
-                onClick={() => setSelectedIds(new Set(files.map((f) => f.id)))}
-                className="text-xs text-gold hover:text-gold-light"
-              >
-                Select all
-              </button>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="text-sm px-4 py-2 text-cream-dark hover:text-cream transition-colors">
-              Cancel
-            </button>
-            <button
-              onClick={handleImport}
-              disabled={selectedIds.size === 0 || importing}
-              className="text-sm px-5 py-2 bg-gold text-luxury-black rounded-lg font-semibold hover:bg-gold-light disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
-            >
-              {importing ? (
-                <>
-                  <div className="animate-spin h-4 w-4 border-2 border-luxury-black border-t-transparent rounded-full" />
-                  Importing...
-                </>
-              ) : (
-                `Import ${selectedIds.size > 0 ? `(${selectedIds.size})` : ''}`
-              )}
-            </button>
-          </div>
-        </div>
+            <div className="flex items-center justify-between px-6 py-4 border-t border-luxury-border">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-cream-dark">{selectedIds.size} selected</span>
+                {files.length > 0 && (
+                  <button
+                    onClick={() => setSelectedIds(new Set(files.map((f) => f.id)))}
+                    className="text-xs text-gold hover:text-gold-light"
+                  >
+                    Select all
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={onClose} className="text-sm px-4 py-2 text-cream-dark hover:text-cream transition-colors">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImport}
+                  disabled={selectedIds.size === 0 || importing}
+                  className="text-sm px-5 py-2 bg-gold text-luxury-black rounded-lg font-semibold hover:bg-gold-light disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+                >
+                  {importing ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 border-2 border-luxury-black border-t-transparent rounded-full" />
+                      Importing...
+                    </>
+                  ) : (
+                    `Import ${selectedIds.size > 0 ? `(${selectedIds.size})` : ''}`
+                  )}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

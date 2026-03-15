@@ -400,10 +400,6 @@ export default function AIStudioPage() {
   // ---- Google Drive Import ----
   function handleDriveImport() {
     if (!hotel || !session) return;
-    if (!session.user.accessToken) {
-      toast('Sign in with Google to use Drive import', 'info');
-      return;
-    }
     if (!selectedSpaceId) {
       toast('Select a space first to import photos', 'info');
       return;

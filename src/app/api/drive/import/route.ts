@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getServiceSupabase } from '@/lib/supabase';
 import { authorizeHotelAccess } from '@/lib/authorization';
+import { cookies } from 'next/headers';
 
 interface ImportRequest {
   fileIds: string[];
@@ -19,9 +20,15 @@ interface DriveFileMetadata {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.accessToken) {
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const cookieStore = await cookies();
+  const driveToken = cookieStore.get('google_drive_token')?.value;
+  if (!driveToken) {
     return NextResponse.json(
-      { error: 'No Google access token' },
+      { error: 'Google Drive not connected. Please authorize access.' },
       { status: 401 }
     );
   }
@@ -36,15 +43,13 @@ export async function POST(req: Request) {
   if ('error' in auth) return auth.error;
 
   const supabase = getServiceSupabase();
-  const accessToken = session.user.accessToken;
   const results: { filename: string; success: boolean; error?: string }[] = [];
 
   for (const fileId of fileIds) {
     try {
-      // Get file metadata
       const metaRes = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
+        { headers: { Authorization: `Bearer ${driveToken}` } }
       );
       if (!metaRes.ok) {
         results.push({ filename: fileId, success: false, error: 'Failed to get file metadata' });
@@ -52,16 +57,14 @@ export async function POST(req: Request) {
       }
       const meta: DriveFileMetadata = await metaRes.json();
 
-      // Validate mime type
       if (!meta.mimeType.startsWith('image/')) {
         results.push({ filename: meta.name, success: false, error: 'Not an image' });
         continue;
       }
 
-      // Download file content
       const downloadRes = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
+        { headers: { Authorization: `Bearer ${driveToken}` } }
       );
       if (!downloadRes.ok) {
         results.push({ filename: meta.name, success: false, error: 'Failed to download' });
@@ -70,7 +73,6 @@ export async function POST(req: Request) {
 
       const buffer = Buffer.from(await downloadRes.arrayBuffer());
 
-      // Determine extension from mime type
       const extMap: Record<string, string> = {
         'image/jpeg': 'jpg',
         'image/png': 'png',
@@ -80,7 +82,6 @@ export async function POST(req: Request) {
       const ext = extMap[meta.mimeType] || meta.name.split('.').pop() || 'jpg';
       const filePath = `${hotelId}/${spaceId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('vas-photos')
         .upload(filePath, buffer, {
@@ -97,7 +98,6 @@ export async function POST(req: Request) {
         .from('vas-photos')
         .getPublicUrl(filePath);
 
-      // Create photo record
       const { error: insertError } = await supabase
         .from('vas_photos')
         .insert({

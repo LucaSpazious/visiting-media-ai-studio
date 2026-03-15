@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { cookies } from 'next/headers';
 
 interface DriveFile {
   id: string;
@@ -18,9 +19,15 @@ interface DriveListResponse {
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.accessToken) {
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const cookieStore = await cookies();
+  const driveToken = cookieStore.get('google_drive_token')?.value;
+  if (!driveToken) {
     return NextResponse.json(
-      { error: 'No Google access token. Please sign in with Google.' },
+      { error: 'Google Drive not connected. Please authorize access.' },
       { status: 401 }
     );
   }
@@ -29,7 +36,6 @@ export async function GET(req: Request) {
   const pageToken = searchParams.get('pageToken') || '';
   const query = searchParams.get('q') || '';
 
-  // Search for image files in Drive
   let driveQuery = "mimeType contains 'image/' and trashed = false";
   if (query) {
     driveQuery += ` and name contains '${query.replace(/'/g, "\\'")}'`;
@@ -45,9 +51,7 @@ export async function GET(req: Request) {
 
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files?${params}`,
-    {
-      headers: { Authorization: `Bearer ${session.user.accessToken}` },
-    }
+    { headers: { Authorization: `Bearer ${driveToken}` } }
   );
 
   const data: DriveListResponse = await res.json();
