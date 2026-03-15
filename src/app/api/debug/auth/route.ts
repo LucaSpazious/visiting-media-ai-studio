@@ -9,7 +9,10 @@ export async function GET() {
     GOOGLE_CLIENT_SECRET: !!process.env.GOOGLE_CLIENT_SECRET,
     NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
+    FAL_KEY: !!process.env.FAL_KEY,
     NODE_ENV: process.env.NODE_ENV,
+    VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL || '(not set)',
     computed_callback_url: `${process.env.NEXTAUTH_URL || `https://${process.env.VERCEL_URL}` || 'UNKNOWN'}/api/auth/callback/google`,
   };
 
