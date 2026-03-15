@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const supabase = getServiceSupabase();
   const { data, error } = await supabase
     .from('vas_projects')
-    .select('*, vas_people(name, image_url), vas_generations(id, result_url, status, vas_photos(filename, space_id, vas_spaces(name, vas_space_types(name))))')
+    .select('*, vas_people(name, image_url), vas_generations(id, result_url, status, prompt, vas_photos(id, filename, original_url, space_id, vas_spaces(name, vas_space_types(name))))')
     .eq('hotel_id', hotelId)
     .order('created_at', { ascending: false });
 

@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { photoId, hotelId, theme, prompt, personImageUrl, imageUrl, projectId } =
+  const { photoId, hotelId, theme, prompt, personImageUrl, personId, imageUrl, projectId } =
     await req.json();
 
   if (!photoId || !hotelId || !theme || !prompt || !imageUrl) {
@@ -33,6 +33,7 @@ export async function POST(req: Request) {
       hotel_id: hotelId,
       theme,
       prompt,
+      person_id: personId || null,
       project_id: projectId || null,
       status: 'processing',
     })

@@ -5,42 +5,10 @@ import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { THEMES, Theme } from '@/lib/themes';
-
-
-interface Space {
-  id: string;
-  name: string;
-}
-
-interface SpaceType {
-  id: string;
-  name: string;
-  vas_spaces: Space[];
-}
-
-interface Hotel {
-  id: string;
-  name: string;
-  slug: string;
-  space_types: SpaceType[];
-}
-
-interface Photo {
-  id: string;
-  original_url: string;
-  filename: string;
-  space_id: string;
-  space_type_id: string;
-}
-
-interface Person {
-  id: string;
-  name: string;
-  image_url: string;
-}
-
-type ScopeLevel = 'hotel' | 'type' | 'space';
-type ActiveTab = 'photos' | 'generate';
+import { Hotel, Photo, Person, ScopeLevel, ActiveTab, GenerationResult } from './types';
+import PhotosTab from './PhotosTab';
+import GenerateTab from './GenerateTab';
+import FloatingSelectionBar from './FloatingSelectionBar';
 
 export default function AIStudioPage() {
   const { data: session, status } = useSession();
@@ -81,8 +49,7 @@ export default function AIStudioPage() {
 
   // Generation state
   const [generating, setGenerating] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState<{ done: number; total: number } | null>(null);
-  const [generatedUrls, setGeneratedUrls] = useState<string[]>([]);
+  const [generationResults, setGenerationResults] = useState<GenerationResult[]>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -327,46 +294,52 @@ export default function AIStudioPage() {
       }
 
       if (structure.length === 0) {
-        alert('No image folders found');
-        return;
-      }
-
-      const msg = structure.map((s) => `  ${s.spaceName}: ${s.files.length} photos`).join('\n');
-      if (!confirm(`Found folders:\n${msg}\n\nImport all?`)) return;
-
-      // Determine which space type to assign to — use first type or ask
-      const defaultType = hotel.space_types[0];
-      if (!defaultType) {
-        alert('Create a space type first');
+        alert('No image subfolders found');
         return;
       }
 
       setUploading(true);
-      const totalFiles = structure.reduce((a, s) => a + s.files.length, 0);
-      let done = 0;
+      const totalFiles = structure.reduce((sum, s) => sum + s.files.length, 0);
       setUploadProgress({ done: 0, total: totalFiles });
+      let done = 0;
+
+      // Get or create a default space type
+      let defaultType = hotel.space_types[0];
+      if (!defaultType) {
+        const typeRes = await fetch('/api/space-types', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hotelId: hotel.id, name: 'Imported' }),
+        });
+        if (typeRes.ok) {
+          await refreshHotel();
+          const updatedHotel = await refreshHotel();
+          if (updatedHotel) defaultType = updatedHotel.space_types[0];
+        }
+      }
+
+      if (!defaultType) {
+        setUploading(false);
+        setUploadProgress(null);
+        return;
+      }
 
       for (const { spaceName, files } of structure) {
-        // Find or create space
-        let space = defaultType.vas_spaces.find(
-          (s) => s.name.toLowerCase() === spaceName.toLowerCase()
-        );
-        if (!space) {
-          const res = await fetch('/api/spaces', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hotelId: hotel.id, spaceTypeId: defaultType.id, name: spaceName }),
-          });
-          if (res.ok) space = await res.json();
-        }
-        if (!space) continue;
+        // Create space
+        const spaceRes = await fetch('/api/spaces', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hotelId: hotel.id, spaceTypeId: defaultType.id, name: spaceName }),
+        });
+        if (!spaceRes.ok) continue;
+        const newSpace = await spaceRes.json();
 
         for (const file of files) {
           try {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('hotelId', hotel.id);
-            formData.append('spaceId', space.id);
+            formData.append('spaceId', newSpace.id);
 
             const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
             if (!uploadRes.ok) continue;
@@ -377,7 +350,7 @@ export default function AIStudioPage() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 hotelId: hotel.id,
-                spaceId: space.id,
+                spaceId: newSpace.id,
                 spaceTypeId: defaultType.id,
                 originalUrl: url,
                 filename,
@@ -390,7 +363,7 @@ export default function AIStudioPage() {
       }
 
       await refreshHotel();
-      if (scopeLevel === 'hotel' && hotel) fetchPhotos(hotel.id);
+      if (hotel) fetchPhotos(hotel.id);
       setUploading(false);
       setUploadProgress(null);
     } catch {
@@ -403,8 +376,6 @@ export default function AIStudioPage() {
   // ---- Google Drive Import ----
   async function handleDriveImport() {
     if (!hotel || !session) return;
-    // We need to trigger Google OAuth with drive.readonly scope
-    // For now, use a re-auth flow that requests the additional scope
     const googleAuthUrl = `/api/auth/signin/google?callbackUrl=${encodeURIComponent(window.location.pathname)}&scope=openid email profile https://www.googleapis.com/auth/drive.readonly`;
     window.location.href = googleAuthUrl;
   }
@@ -414,9 +385,17 @@ export default function AIStudioPage() {
     if (!selectedTheme || !hotel || selectedPhotoIds.size === 0) return;
     setGenerating(true);
     setError('');
-    setGeneratedUrls([]);
 
     const selectedPhotos = photos.filter((p) => selectedPhotoIds.has(p.id));
+
+    // Initialize per-photo tracking
+    const initialResults: GenerationResult[] = selectedPhotos.map((p) => ({
+      photoId: p.id,
+      originalUrl: p.original_url,
+      filename: p.filename,
+      status: 'pending' as const,
+    }));
+    setGenerationResults(initialResults);
 
     // Build project name
     const scopeName = scopeLevel === 'hotel'
@@ -444,18 +423,21 @@ export default function AIStudioPage() {
       if (!projRes.ok) throw new Error('Failed to create project');
       const project = await projRes.json();
 
-      setGenerationProgress({ done: 0, total: selectedPhotos.length });
-      const results: string[] = [];
-
       for (let i = 0; i < selectedPhotos.length; i++) {
         const photo = selectedPhotos[i];
+
+        // Mark current photo as generating
+        setGenerationResults((prev) =>
+          prev.map((r) => r.photoId === photo.id ? { ...r, status: 'generating' as const } : r)
+        );
+
         try {
           const spaceType = hotel.space_types.find((st) =>
             st.vas_spaces.some((s) => s.id === photo.space_id)
           );
           const space = spaceType?.vas_spaces.find((s) => s.id === photo.space_id);
 
-          // Generate prompt
+          // Generate prompt via Claude
           const promptRes = await fetch('/api/prompt', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -466,9 +448,10 @@ export default function AIStudioPage() {
               personName: selectedPerson?.name,
             }),
           });
+          if (!promptRes.ok) throw new Error('Prompt generation failed');
           const { prompt } = await promptRes.json();
 
-          // Generate image
+          // Generate image via FLUX.1 Kontext [max]
           const genRes = await fetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -478,6 +461,7 @@ export default function AIStudioPage() {
               theme: selectedTheme.id,
               prompt,
               imageUrl: photo.original_url,
+              personId: selectedPerson?.id,
               personImageUrl: selectedPerson?.image_url,
               projectId: project.id,
             }),
@@ -485,13 +469,24 @@ export default function AIStudioPage() {
 
           const genData = await genRes.json();
           if (genRes.ok && genData.result_url) {
-            results.push(genData.result_url);
+            setGenerationResults((prev) =>
+              prev.map((r) => r.photoId === photo.id
+                ? { ...r, status: 'done' as const, resultUrl: genData.result_url, prompt }
+                : r
+              )
+            );
+          } else {
+            throw new Error(genData.error || 'Generation failed');
           }
-        } catch { /* continue with next photo */ }
-        setGenerationProgress({ done: i + 1, total: selectedPhotos.length });
+        } catch (err) {
+          setGenerationResults((prev) =>
+            prev.map((r) => r.photoId === photo.id
+              ? { ...r, status: 'error' as const, error: err instanceof Error ? err.message : 'Failed' }
+              : r
+            )
+          );
+        }
       }
-
-      setGeneratedUrls(results);
 
       // Update project status
       await fetch(`/api/projects/${project.id}`, {
@@ -500,10 +495,9 @@ export default function AIStudioPage() {
         body: JSON.stringify({ status: 'done' }),
       });
     } catch {
-      setError('Generation failed. Please try again.');
+      setError('Generation failed. Could not create project.');
     } finally {
       setGenerating(false);
-      setGenerationProgress(null);
     }
   }
 
@@ -523,7 +517,6 @@ export default function AIStudioPage() {
     );
   }
 
-  const selectedType = hotel.space_types.find((st) => st.id === selectedTypeId);
   const canManage = session?.user.role !== 'hotel_user';
 
   return (
@@ -786,202 +779,54 @@ export default function AIStudioPage() {
           {/* Main content */}
           <div className="lg:col-span-3">
             {activeTab === 'photos' ? (
-              /* ===== PHOTOS TAB ===== */
-              <>
-                {/* Upload area — only when a space is selected */}
-                {scopeLevel === 'space' && selectedSpaceId && (
-                  <div
-                    className={`mb-6 border-2 border-dashed rounded-xl p-8 text-center transition-colors ${dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white'}`}
-                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={handleDrop}
-                  >
-                    {uploading && uploadProgress ? (
-                      <div>
-                        <p className="text-sm text-gray-600 mb-2">
-                          Uploading... {uploadProgress.done}/{uploadProgress.total}
-                        </p>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full transition-all"
-                            style={{ width: `${(uploadProgress.done / uploadProgress.total) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <svg className="w-10 h-10 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
-                        <p className="text-sm text-gray-500">
-                          Drag & drop photos here, or{' '}
-                          <button onClick={() => fileInputRef.current?.click()} className="text-blue-600 hover:underline font-medium">
-                            browse files
-                          </button>
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP accepted</p>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          multiple
-                          className="hidden"
-                          onChange={(e) => e.target.files && uploadFiles(e.target.files)}
-                        />
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Photo count header */}
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    {scopeLevel === 'hotel'
-                      ? hotel.name
-                      : scopeLevel === 'type'
-                        ? selectedType?.name
-                        : hotel.space_types.flatMap((st) => st.vas_spaces).find((s) => s.id === selectedSpaceId)?.name}
-                    {' '}
-                    <span className="text-gray-400 font-normal text-sm">({photos.length} photos)</span>
-                  </h2>
-                </div>
-
-                {/* Photo grid or empty state */}
-                {photos.length === 0 ? (
-                  <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-100">
-                    <svg className="w-16 h-16 mx-auto text-gray-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" /></svg>
-                    <p className="text-gray-500">No photos yet</p>
-                    <p className="text-gray-400 text-sm mt-1">
-                      {scopeLevel === 'space' ? 'Drag & drop photos above to upload' : 'Select a space to upload photos'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {photos.map((photo) => (
-                      <div
-                        key={photo.id}
-                        className="group bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
-                      >
-                        <div className="aspect-video relative bg-gray-100">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={photo.original_url} alt={photo.filename} className="w-full h-full object-cover" />
-                          {canManage && (
-                            <button
-                              onClick={() => handleDeletePhoto(photo.id)}
-                              className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
-                          )}
-                        </div>
-                        <div className="p-2">
-                          <p className="text-xs text-gray-500 truncate">{photo.filename}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
+              <PhotosTab
+                hotel={hotel}
+                photos={photos}
+                scopeLevel={scopeLevel}
+                selectedTypeId={selectedTypeId}
+                selectedSpaceId={selectedSpaceId}
+                selectedPhotoIds={selectedPhotoIds}
+                canManage={canManage}
+                uploading={uploading}
+                uploadProgress={uploadProgress}
+                dragOver={dragOver}
+                onDragOver={() => setDragOver(true)}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onUploadFiles={uploadFiles}
+                onDeletePhoto={handleDeletePhoto}
+                onToggleSelect={togglePhotoSelection}
+                onSelectAll={selectAllPhotos}
+                onDeselectAll={deselectAllPhotos}
+              />
             ) : (
-              /* ===== GENERATE TAB ===== */
-              <>
-                {!selectedTheme ? (
-                  <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-100">
-                    <p className="text-gray-500 text-lg">Select a theme to start generating</p>
-                    <p className="text-gray-400 text-sm mt-2">Choose a scope and theme from the sidebar</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Selection controls */}
-                    <div className="mb-4 flex items-center justify-between">
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900">
-                          {selectedTheme.emoji} {selectedTheme.name}
-                        </h2>
-                        <p className="text-sm text-gray-500">{photos.length} photo(s) — {selectedPhotoIds.size} selected</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={selectAllPhotos} className="text-xs text-blue-600 hover:underline">Select All</button>
-                        <button onClick={deselectAllPhotos} className="text-xs text-gray-500 hover:underline">Deselect All</button>
-                        {selectedPhotoIds.size > 0 && (
-                          <button
-                            onClick={handleBatchGenerate}
-                            disabled={generating}
-                            className="ml-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                          >
-                            {generating
-                              ? generationProgress
-                                ? `Generating ${generationProgress.done}/${generationProgress.total}...`
-                                : 'Starting...'
-                              : `Generate ${selectedPhotoIds.size} photo${selectedPhotoIds.size > 1 ? 's' : ''}`}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Photo grid with checkboxes */}
-                    {photos.length === 0 ? (
-                      <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-100">
-                        <p className="text-gray-500">No photos in this scope</p>
-                        <p className="text-gray-400 text-sm mt-1">Upload photos in the Photos tab first</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {photos.map((photo) => {
-                          const isSelected = selectedPhotoIds.has(photo.id);
-                          return (
-                            <div
-                              key={photo.id}
-                              onClick={() => togglePhotoSelection(photo.id)}
-                              className={`cursor-pointer bg-white rounded-xl overflow-hidden shadow-sm border-2 transition-all ${isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-100 hover:border-gray-300'}`}
-                            >
-                              <div className="aspect-video relative bg-gray-100">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={photo.original_url} alt={photo.filename} className="w-full h-full object-cover" />
-                                <div className={`absolute top-2 left-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-blue-600 border-blue-600' : 'bg-white/80 border-gray-300'}`}>
-                                  {isSelected && (
-                                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="p-2">
-                                <p className="text-xs text-gray-500 truncate">{photo.filename}</p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Generation results */}
-                    {error && (
-                      <div className="mt-6 p-4 bg-red-50 text-red-700 rounded-xl text-sm">{error}</div>
-                    )}
-                    {generatedUrls.length > 0 && (
-                      <div className="mt-8">
-                        <h3 className="font-semibold text-gray-900 mb-4">Generated Photos ({generatedUrls.length})</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          {generatedUrls.map((url, i) => (
-                            <div key={i} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
-                              <div className="aspect-video relative">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={url} alt={`Generated ${i + 1}`} className="w-full h-full object-cover" />
-                              </div>
-                              <div className="p-2">
-                                <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
-                                  Download
-                                </a>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </>
+              <GenerateTab
+                photos={photos}
+                selectedTheme={selectedTheme}
+                selectedPerson={selectedPerson}
+                selectedPhotoIds={selectedPhotoIds}
+                generating={generating}
+                generationResults={generationResults}
+                error={error}
+                onToggleSelect={togglePhotoSelection}
+                onSelectAll={selectAllPhotos}
+                onDeselectAll={deselectAllPhotos}
+                onGenerate={handleBatchGenerate}
+                onGoToPhotos={() => setActiveTab('photos')}
+              />
             )}
           </div>
         </div>
       </main>
+
+      {/* Floating selection bar — visible in Photos tab when photos are selected */}
+      {activeTab === 'photos' && (
+        <FloatingSelectionBar
+          count={selectedPhotoIds.size}
+          onClear={deselectAllPhotos}
+          onEditWithAI={() => setActiveTab('generate')}
+        />
+      )}
     </div>
   );
 }
