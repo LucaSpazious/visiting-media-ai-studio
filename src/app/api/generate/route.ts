@@ -7,10 +7,6 @@ export const maxDuration = 120;
 
 const MAX_RETRIES = 2;
 
-fal.config({
-  credentials: process.env.FAL_KEY,
-});
-
 async function callFalWithRetry(
   input: Record<string, unknown>,
   retries: number = MAX_RETRIES
@@ -49,6 +45,10 @@ async function callFalWithRetry(
 }
 
 export async function POST(req: Request) {
+  fal.config({
+    credentials: process.env.FAL_KEY,
+  });
+
   const { photoId, hotelId, theme, prompt, personImageUrl, personId, imageUrl, projectId } =
     await req.json();
 

@@ -10,14 +10,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error('[Prompt API] ANTHROPIC_API_KEY is not set');
-    return NextResponse.json(
-      { error: 'Anthropic API key not configured' },
-      { status: 500 }
-    );
-  }
-
   const { themeId, spaceName, spaceType, personName } = await req.json();
 
   const theme = THEMES.find((t) => t.id === themeId);
@@ -28,6 +20,13 @@ export async function POST(req: Request) {
   const personContext = personName
     ? `Include a person named "${personName}" naturally in the scene, as if they belong there.`
     : '';
+
+  const fallbackPrompt = `Transform this hotel photo with a ${theme.name} theme. Add elegant seasonal decorations, warm ambient lighting, and a welcoming atmosphere that feels natural and high-quality.${personContext ? ` ${personContext}` : ''}`;
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('[Prompt API] ANTHROPIC_API_KEY is not set, using fallback prompt');
+    return NextResponse.json({ prompt: fallbackPrompt });
+  }
 
   try {
     const anthropic = new Anthropic({
@@ -60,23 +59,11 @@ Output ONLY the prompt text, nothing else.`,
     });
 
     const prompt =
-      message.content[0].type === 'text' ? message.content[0].text : '';
+      message.content[0].type === 'text' ? message.content[0].text : fallbackPrompt;
 
     return NextResponse.json({ prompt });
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('[Prompt API] Anthropic error:', errorMessage);
-
-    if (errorMessage.includes('401') || errorMessage.includes('authentication')) {
-      return NextResponse.json(
-        { error: 'Invalid Anthropic API key' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: `Prompt generation failed: ${errorMessage}` },
-      { status: 500 }
-    );
+    console.error('[Prompt API] Anthropic error, using fallback:', err);
+    return NextResponse.json({ prompt: fallbackPrompt });
   }
 }
