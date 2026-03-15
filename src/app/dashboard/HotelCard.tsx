@@ -39,51 +39,51 @@ export default function HotelCard({ hotel, stats }: HotelCardProps) {
     : 0;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-luxury-card rounded-xl border border-gold/10 overflow-hidden card-hover">
       <div className="p-6 pb-4">
         <div className="flex items-start justify-between mb-1">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">{hotel.name}</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className="text-lg font-display font-semibold text-cream">{hotel.name}</h3>
+            <p className="text-sm text-cream-dark">
               {hotel.location}{hotel.country ? `, ${hotel.country}` : ''}
             </p>
           </div>
           <div className="flex items-center gap-2">
             {hotel.star_rating > 0 && (
-              <span className="text-sm font-medium text-amber-600">
+              <span className="text-sm font-medium text-gold">
                 {'★'.repeat(hotel.star_rating)}
               </span>
             )}
-            <span className={`inline-block w-2 h-2 rounded-full ${hotel.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`} />
+            <span className={`inline-block w-2 h-2 rounded-full ${hotel.status === 'active' ? 'bg-emerald-500' : 'bg-cream-dark'}`} />
           </div>
         </div>
 
         {stats && (
           <div className="grid grid-cols-3 gap-3 mt-4">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-2xl font-bold text-gray-900">{stats.totalPhotos}</p>
-              <p className="text-xs text-gray-500">Photos</p>
+            <div className="bg-luxury-black/50 rounded-lg p-3 border border-luxury-border">
+              <p className="text-2xl font-bold text-cream">{stats.totalPhotos}</p>
+              <p className="text-[10px] text-cream-dark tracking-wide uppercase">Photos</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-2xl font-bold text-gray-900">{stats.totalGenerations}</p>
-              <p className="text-xs text-gray-500">Generations</p>
+            <div className="bg-luxury-black/50 rounded-lg p-3 border border-luxury-border">
+              <p className="text-2xl font-bold text-cream">{stats.totalGenerations}</p>
+              <p className="text-[10px] text-cream-dark tracking-wide uppercase">Generations</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-2xl font-bold text-gray-900">{stats.totalSpaces}</p>
-              <p className="text-xs text-gray-500">Spaces</p>
+            <div className="bg-luxury-black/50 rounded-lg p-3 border border-luxury-border">
+              <p className="text-2xl font-bold text-cream">{stats.totalSpaces}</p>
+              <p className="text-[10px] text-cream-dark tracking-wide uppercase">Spaces</p>
             </div>
           </div>
         )}
 
         {stats && stats.totalSpaces > 0 && (
           <div className="mt-4">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
+            <div className="flex justify-between text-xs text-cream-dark mb-1">
               <span>Spaces with photos</span>
               <span>{stats.spacesWithPhotos}/{stats.totalSpaces}</span>
             </div>
-            <div className="w-full bg-gray-100 rounded-full h-2">
+            <div className="w-full bg-luxury-border rounded-full h-1.5">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all"
+                className="bg-gold h-1.5 rounded-full transition-all"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -92,16 +92,12 @@ export default function HotelCard({ hotel, stats }: HotelCardProps) {
 
         {stats && stats.recentGenerations.length > 0 && (
           <div className="mt-4">
-            <p className="text-xs text-gray-500 mb-2">Recent generations</p>
+            <p className="text-xs text-cream-dark mb-2 tracking-wide uppercase">Recent generations</p>
             <div className="flex gap-2">
               {stats.recentGenerations.map((gen) => (
-                <div key={gen.id} className="w-16 h-16 rounded-lg overflow-hidden border border-gray-100 flex-shrink-0">
+                <div key={gen.id} className="w-16 h-16 rounded-lg overflow-hidden border border-gold/10 flex-shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={gen.resultUrl}
-                    alt={gen.filename || 'Generated'}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={gen.resultUrl} alt={gen.filename || 'Generated'} className="w-full h-full object-cover" />
                 </div>
               ))}
             </div>
@@ -109,25 +105,16 @@ export default function HotelCard({ hotel, stats }: HotelCardProps) {
         )}
       </div>
 
-      <div className="border-t border-gray-100 px-6 py-3 flex items-center gap-3 bg-gray-50/50">
-        <Link
-          href={`/ai-studio/${hotel.slug}`}
-          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-        >
+      <div className="border-t border-gold/10 px-6 py-3 flex items-center gap-3 bg-luxury-black/30">
+        <Link href={`/ai-studio/${hotel.slug}`} className="text-sm text-gold hover:text-gold-light font-medium tracking-wide transition-colors">
           Ver fotos
         </Link>
-        <span className="text-gray-200">|</span>
-        <Link
-          href={`/ai-studio/${hotel.slug}?tab=generate`}
-          className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-        >
+        <span className="text-luxury-border">|</span>
+        <Link href={`/ai-studio/${hotel.slug}?tab=generate`} className="text-sm text-cream-muted hover:text-cream font-medium tracking-wide transition-colors">
           Nueva generacion
         </Link>
-        <span className="text-gray-200">|</span>
-        <Link
-          href={`/ai-studio/${hotel.slug}/projects`}
-          className="text-sm text-gray-600 hover:text-gray-800"
-        >
+        <span className="text-luxury-border">|</span>
+        <Link href={`/ai-studio/${hotel.slug}/projects`} className="text-sm text-cream-dark hover:text-cream transition-colors">
           Projects
         </Link>
       </div>

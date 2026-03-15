@@ -95,38 +95,35 @@ export default function DriveImportModal({ open, onClose, onImport }: DriveImpor
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col mx-4">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">Import from Google Drive</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+      <div className="bg-luxury-card rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col mx-4 border border-gold/10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-luxury-border">
+          <h2 className="text-lg font-display font-semibold text-cream">Import from Google Drive</h2>
+          <button onClick={onClose} className="text-cream-dark hover:text-cream transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Search */}
-        <div className="px-6 py-3 border-b border-gray-50">
+        <div className="px-6 py-3 border-b border-luxury-border">
           <div className="flex gap-2">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="Search images..."
-              className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-blue-500"
+              className="flex-1 text-sm px-3 py-2 bg-luxury-black border border-luxury-border rounded-lg text-cream placeholder-cream-dark"
             />
             <button
               onClick={handleSearch}
-              className="text-sm px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              className="text-sm px-4 py-2 bg-luxury-hover text-cream rounded-lg hover:bg-luxury-border transition-colors"
             >
               Search
             </button>
           </div>
         </div>
 
-        {/* File grid */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <DriveFileGrid
             files={files}
@@ -139,31 +136,30 @@ export default function DriveImportModal({ open, onClose, onImport }: DriveImpor
           />
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-luxury-border">
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500">{selectedIds.size} selected</span>
+            <span className="text-sm text-cream-dark">{selectedIds.size} selected</span>
             {files.length > 0 && (
               <button
                 onClick={() => setSelectedIds(new Set(files.map((f) => f.id)))}
-                className="text-xs text-blue-600 hover:underline"
+                className="text-xs text-gold hover:text-gold-light"
               >
                 Select all
               </button>
             )}
           </div>
           <div className="flex gap-2">
-            <button onClick={onClose} className="text-sm px-4 py-2 text-gray-600 hover:text-gray-800">
+            <button onClick={onClose} className="text-sm px-4 py-2 text-cream-dark hover:text-cream transition-colors">
               Cancel
             </button>
             <button
               onClick={handleImport}
               disabled={selectedIds.size === 0 || importing}
-              className="text-sm px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="text-sm px-5 py-2 bg-gold text-luxury-black rounded-lg font-semibold hover:bg-gold-light disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
             >
               {importing ? (
                 <>
-                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                  <div className="animate-spin h-4 w-4 border-2 border-luxury-black border-t-transparent rounded-full" />
                   Importing...
                 </>
               ) : (

@@ -51,15 +51,15 @@ export default function ProfileSection({ user, onUpdate }: ProfileSectionProps) 
   }
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-      <h2 className="font-semibold text-gray-900 mb-4">Profile</h2>
+    <div className="bg-luxury-card rounded-xl p-6 border border-gold/10">
+      <h2 className="font-display font-semibold text-cream mb-4">Profile</h2>
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
-          <p className="text-gray-900">{user?.email || '—'}</p>
+          <label className="block text-xs font-medium text-cream-dark mb-1 tracking-wide uppercase">Email</label>
+          <p className="text-cream">{user?.email || '—'}</p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-500 mb-1">Name</label>
+          <label className="block text-xs font-medium text-cream-dark mb-1 tracking-wide uppercase">Name</label>
           {editing ? (
             <div className="flex items-center gap-2">
               <input
@@ -69,29 +69,29 @@ export default function ProfileSection({ user, onUpdate }: ProfileSectionProps) 
                   if (e.key === 'Enter') handleSave();
                   if (e.key === 'Escape') { setEditing(false); setName(user?.name || ''); }
                 }}
-                className="flex-1 text-sm px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
+                className="flex-1 text-sm px-3 py-2 border border-luxury-border rounded-lg bg-luxury-black text-cream"
                 autoFocus
               />
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="text-sm px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="text-sm px-3 py-2 bg-gold text-luxury-black rounded-lg font-medium hover:bg-gold-light disabled:opacity-50 transition-colors"
               >
                 {saving ? 'Saving...' : 'Save'}
               </button>
               <button
                 onClick={() => { setEditing(false); setName(user?.name || ''); }}
-                className="text-sm px-3 py-2 text-gray-500 hover:text-gray-700"
+                className="text-sm px-3 py-2 text-cream-dark hover:text-cream transition-colors"
               >
                 Cancel
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <p className="text-gray-900">{user?.name || '—'}</p>
+              <p className="text-cream">{user?.name || '—'}</p>
               <button
                 onClick={() => { setEditing(true); setName(user?.name || ''); }}
-                className="text-xs text-blue-600 hover:underline"
+                className="text-xs text-gold hover:text-gold-light"
               >
                 Edit
               </button>
@@ -99,19 +99,19 @@ export default function ProfileSection({ user, onUpdate }: ProfileSectionProps) 
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-500 mb-1">Role</label>
-          <p className="text-gray-900 capitalize">{user?.role?.replace('_', ' ') || '—'}</p>
+          <label className="block text-xs font-medium text-cream-dark mb-1 tracking-wide uppercase">Role</label>
+          <p className="text-cream capitalize">{user?.role?.replace('_', ' ') || '—'}</p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-500 mb-1">Member since</label>
-          <p className="text-gray-900">
+          <label className="block text-xs font-medium text-cream-dark mb-1 tracking-wide uppercase">Member since</label>
+          <p className="text-cream">
             {user?.created_at
               ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
               : '—'}
           </p>
         </div>
         {message && (
-          <p className={`text-sm ${message.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+          <p className={`text-sm ${message.includes('Failed') ? 'text-red-400' : 'text-emerald-400'}`}>
             {message}
           </p>
         )}

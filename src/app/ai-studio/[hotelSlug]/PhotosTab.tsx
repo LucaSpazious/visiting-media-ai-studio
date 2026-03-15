@@ -68,7 +68,7 @@ export default function PhotosTab({
       {scopeLevel === 'space' && selectedSpaceId && (
         <div
           className={`mb-6 border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-            dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white'
+            dragOver ? 'border-gold bg-gold/5' : 'border-luxury-border bg-luxury-card'
           }`}
           onDragOver={(e) => {
             e.preventDefault();
@@ -79,12 +79,12 @@ export default function PhotosTab({
         >
           {uploading && uploadProgress ? (
             <div>
-              <p className="text-sm text-gray-600 mb-2">
+              <p className="text-sm text-cream-muted mb-2">
                 Uploading... {uploadProgress.done}/{uploadProgress.total}
               </p>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-luxury-border rounded-full h-1.5">
                 <div
-                  className="bg-blue-600 h-2 rounded-full transition-all"
+                  className="bg-gold h-1.5 rounded-full transition-all"
                   style={{
                     width: `${(uploadProgress.done / uploadProgress.total) * 100}%`,
                   }}
@@ -93,31 +93,19 @@ export default function PhotosTab({
             </div>
           ) : (
             <>
-              <svg
-                className="w-10 h-10 mx-auto text-gray-300 mb-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"
-                />
+              <svg className="w-10 h-10 mx-auto text-cream-dark/40 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
               </svg>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-cream-muted">
                 Drag & drop photos here, or{' '}
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-blue-600 hover:underline font-medium"
+                  className="text-gold hover:text-gold-light font-medium"
                 >
                   browse files
                 </button>
               </p>
-              <p className="text-xs text-gray-400 mt-1">
-                JPG, PNG, WebP accepted
-              </p>
+              <p className="text-xs text-cream-dark mt-1">JPG, PNG, WebP accepted</p>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -133,9 +121,9 @@ export default function PhotosTab({
 
       {/* Photo count header + selection controls */}
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-display font-semibold text-cream">
           {scopeName}{' '}
-          <span className="text-gray-400 font-normal text-sm">
+          <span className="text-cream-dark font-body font-normal text-sm">
             {!loadingPhotos && (
               <>
                 ({photos.length} photo{photos.length !== 1 ? 's' : ''})
@@ -147,17 +135,11 @@ export default function PhotosTab({
         </h2>
         {photos.length > 0 && !loadingPhotos && (
           <div className="flex items-center gap-2">
-            <button
-              onClick={onSelectAll}
-              className="text-xs text-blue-600 hover:underline"
-            >
+            <button onClick={onSelectAll} className="text-xs text-gold hover:text-gold-light">
               Select All
             </button>
             {selectedPhotoIds.size > 0 && (
-              <button
-                onClick={onDeselectAll}
-                className="text-xs text-gray-500 hover:underline"
-              >
+              <button onClick={onDeselectAll} className="text-xs text-cream-dark hover:text-cream">
                 Deselect All
               </button>
             )}
@@ -167,47 +149,36 @@ export default function PhotosTab({
 
       {/* Loading skeleton */}
       {loadingPhotos ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
-              <div className="aspect-video bg-gray-200 animate-pulse" />
+            <div key={i} className="bg-luxury-card rounded-xl overflow-hidden border border-luxury-border">
+              <div className="aspect-video bg-luxury-hover animate-pulse" />
             </div>
           ))}
         </div>
       ) : photos.length === 0 ? (
-        /* Empty state */
         <div
-          className={`bg-white rounded-xl p-12 text-center shadow-sm border-2 transition-colors ${
-            scopeLevel === 'space' && dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-100 border-dashed'
+          className={`bg-luxury-card rounded-xl p-12 text-center border-2 transition-colors ${
+            scopeLevel === 'space' && dragOver ? 'border-gold bg-gold/5' : 'border-luxury-border border-dashed'
           }`}
           onDragOver={scopeLevel === 'space' ? (e) => { e.preventDefault(); onDragOver(); } : undefined}
           onDragLeave={scopeLevel === 'space' ? onDragLeave : undefined}
           onDrop={scopeLevel === 'space' ? onDrop : undefined}
         >
-          <svg
-            className="w-16 h-16 mx-auto text-gray-200 mb-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1}
-              d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
-            />
+          <svg className="w-16 h-16 mx-auto text-cream-dark/20 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
           </svg>
-          <p className="text-gray-500">
+          <p className="text-cream-muted">
             {scopeLevel === 'space' ? 'No photos in this space' : 'No photos yet'}
           </p>
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-cream-dark text-sm mt-1">
             {scopeLevel === 'space'
               ? 'Drag & drop photos here to upload'
               : 'Select a space from the sidebar to upload photos'}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {photos.map((photo) => (
             <PhotoCard
               key={photo.id}

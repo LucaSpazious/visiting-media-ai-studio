@@ -52,6 +52,9 @@ export default function AIStudioPage() {
   // Drive import
   const [driveModalOpen, setDriveModalOpen] = useState(false);
 
+  // Mobile sidebar
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   // Theme + person + selection state (Generate tab)
   const [selectedTheme, setSelectedTheme] = useState<Theme | null>(null);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -572,16 +575,16 @@ export default function AIStudioPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+      <div className="min-h-screen flex items-center justify-center bg-luxury-black">
+        <div className="animate-spin h-8 w-8 border-2 border-gold border-t-transparent rounded-full" />
       </div>
     );
   }
 
   if (!hotel) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Hotel not found</p>
+      <div className="min-h-screen flex items-center justify-center bg-luxury-black">
+        <p className="text-cream-dark">Hotel not found</p>
       </div>
     );
   }
@@ -589,34 +592,43 @@ export default function AIStudioPage() {
   const canManage = session?.user.role !== 'hotel_user';
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-luxury-black">
       {/* Navigation */}
-      <nav className="bg-white border-b border-gray-200">
+      <nav className="bg-gradient-to-r from-luxury-surface via-luxury-card to-luxury-surface border-b border-gold/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center gap-4">
-              <Link href="/dashboard" className="text-gray-500 hover:text-gray-900">
-                &larr; Dashboard
+              {/* Mobile hamburger */}
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="lg:hidden p-1.5 text-cream-dark hover:text-cream"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sidebarOpen ? 'M6 18L18 6M6 6l12 12' : 'M4 6h16M4 12h16M4 18h16'} />
+                </svg>
+              </button>
+              <Link href="/dashboard" className="text-cream-dark hover:text-cream hidden sm:block">
+                &larr;
               </Link>
-              <h1 className="text-xl font-bold text-gray-900">{hotel.name}</h1>
+              <h1 className="text-xl font-display font-bold text-cream">{hotel.name}</h1>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto">
               <button
                 onClick={() => setActiveTab('photos')}
-                className={`text-sm px-3 py-2 rounded-lg ${activeTab === 'photos' ? 'font-medium text-blue-700 bg-blue-50' : 'text-gray-600 hover:text-gray-900'}`}
+                className={`text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-colors ${activeTab === 'photos' ? 'font-medium text-gold bg-gold/10' : 'text-cream-dark hover:text-cream'}`}
               >
                 Photos
               </button>
               <button
                 onClick={() => setActiveTab('generate')}
-                className={`text-sm px-3 py-2 rounded-lg ${activeTab === 'generate' ? 'font-medium text-blue-700 bg-blue-50' : 'text-gray-600 hover:text-gray-900'}`}
+                className={`text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-colors ${activeTab === 'generate' ? 'font-medium text-gold bg-gold/10' : 'text-cream-dark hover:text-cream'}`}
               >
                 Generate
               </button>
-              <Link href={`/ai-studio/${hotelSlug}/projects`} className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2">
+              <Link href={`/ai-studio/${hotelSlug}/projects`} className="text-sm text-cream-dark hover:text-cream px-3 py-2 whitespace-nowrap">
                 Projects
               </Link>
-              <Link href={`/ai-studio/${hotelSlug}/people`} className="text-sm text-purple-700 bg-purple-50 px-3 py-2 rounded-lg hover:bg-purple-100 transition-colors">
+              <Link href={`/ai-studio/${hotelSlug}/people`} className="text-sm text-gold bg-gold/10 px-3 py-2 rounded-lg hover:bg-gold/20 transition-colors whitespace-nowrap hidden sm:block">
                 People Bank
               </Link>
             </div>
@@ -624,36 +636,41 @@ export default function AIStudioPage() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}>
+          <div className="absolute inset-0 bg-black/60" />
+        </div>
+      )}
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
           {/* Left sidebar — scope */}
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className={`lg:col-span-1 space-y-6 ${sidebarOpen ? 'fixed inset-y-0 left-0 z-50 w-72 bg-luxury-black p-4 pt-20 overflow-y-auto border-r border-gold/10 lg:static lg:w-auto lg:p-0 lg:pt-0 lg:border-0' : 'hidden lg:block'}`}>
+            <div className="bg-luxury-card rounded-xl p-5 border border-gold/10">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-900">Spaces</h3>
-                {scopeLevel === 'hotel' && (
-                  <div className="flex gap-1">
-                    <button
-                      onClick={handleFolderUpload}
-                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
-                      title="Upload folder"
-                    >
-                      Folder
-                    </button>
-                    <button
-                      onClick={handleDriveImport}
-                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
-                      title="Import from Google Drive"
-                    >
-                      Drive
-                    </button>
-                  </div>
-                )}
+                <h3 className="font-display font-semibold text-cream">Spaces</h3>
+                <div className="flex gap-1">
+                  <button
+                    onClick={handleFolderUpload}
+                    className="text-xs text-cream-dark hover:text-gold px-2 py-1 rounded hover:bg-gold/5 transition-colors"
+                    title="Upload folder"
+                  >
+                    Folder
+                  </button>
+                  <button
+                    onClick={handleDriveImport}
+                    className="text-xs text-cream-dark hover:text-gold px-2 py-1 rounded hover:bg-gold/5 transition-colors"
+                    title="Import from Google Drive"
+                  >
+                    Drive
+                  </button>
+                </div>
               </div>
               <div className="space-y-1">
                 <button
-                  onClick={() => { setScopeLevel('hotel'); setSelectedTypeId(''); setSelectedSpaceId(''); }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm ${scopeLevel === 'hotel' ? 'bg-blue-50 text-blue-700 font-medium' : 'hover:bg-gray-50 text-gray-600'}`}
+                  onClick={() => { setScopeLevel('hotel'); setSelectedTypeId(''); setSelectedSpaceId(''); setSidebarOpen(false); }}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${scopeLevel === 'hotel' ? 'bg-gold/10 text-gold font-medium' : 'hover:bg-luxury-hover text-cream-muted'}`}
                 >
                   Entire Hotel
                 </button>
@@ -668,29 +685,29 @@ export default function AIStudioPage() {
                           onChange={(e) => setEditName(e.target.value)}
                           onBlur={() => handleRenameType(st.id)}
                           onKeyDown={(e) => { if (e.key === 'Enter') handleRenameType(st.id); if (e.key === 'Escape') setEditingTypeId(null); }}
-                          className="flex-1 px-3 py-1.5 text-sm border-b border-blue-500 outline-none bg-transparent"
+                          className="flex-1 px-3 py-1.5 text-sm border-b border-gold outline-none bg-transparent text-cream"
                         />
                       ) : (
                         <button
-                          onClick={() => { setScopeLevel('type'); setSelectedTypeId(st.id); setSelectedSpaceId(''); }}
-                          className={`flex-1 text-left px-3 py-2 rounded-lg text-sm ${scopeLevel === 'type' && selectedTypeId === st.id ? 'bg-blue-50 text-blue-700 font-medium' : 'hover:bg-gray-50 text-gray-600'}`}
+                          onClick={() => { setScopeLevel('type'); setSelectedTypeId(st.id); setSelectedSpaceId(''); setSidebarOpen(false); }}
+                          className={`flex-1 text-left px-3 py-2 rounded-lg text-sm transition-colors ${scopeLevel === 'type' && selectedTypeId === st.id ? 'bg-gold/10 text-gold font-medium' : 'hover:bg-luxury-hover text-cream-muted'}`}
                         >
                           {st.name}
-                          <span className="text-xs text-gray-400 ml-1">({st.vas_spaces.length})</span>
+                          <span className="text-xs text-cream-dark ml-1">({st.vas_spaces.length})</span>
                         </button>
                       )}
                       {canManage && editingTypeId !== st.id && (
                         <div className="hidden group-hover:flex items-center gap-0.5 mr-1">
                           <button
                             onClick={() => { setEditingTypeId(st.id); setEditName(st.name); }}
-                            className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                            className="p-1 text-cream-dark hover:text-gold rounded"
                             title="Rename"
                           >
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                           </button>
                           <button
                             onClick={() => handleDeleteType(st.id)}
-                            className="p-1 text-gray-400 hover:text-red-500 rounded"
+                            className="p-1 text-cream-dark hover:text-red-400 rounded"
                             title="Delete"
                           >
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -710,12 +727,12 @@ export default function AIStudioPage() {
                                 onChange={(e) => setEditName(e.target.value)}
                                 onBlur={() => handleRenameSpace(s.id)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleRenameSpace(s.id); if (e.key === 'Escape') setEditingSpaceId(null); }}
-                                className="flex-1 px-3 py-1 text-xs border-b border-blue-500 outline-none bg-transparent"
+                                className="flex-1 px-3 py-1 text-xs border-b border-gold outline-none bg-transparent text-cream"
                               />
                             ) : (
                               <button
-                                onClick={() => { setScopeLevel('space'); setSelectedTypeId(st.id); setSelectedSpaceId(s.id); }}
-                                className={`flex-1 text-left px-3 py-1.5 rounded text-xs ${scopeLevel === 'space' && selectedSpaceId === s.id ? 'bg-blue-50 text-blue-700 font-medium' : 'hover:bg-gray-50 text-gray-500'}`}
+                                onClick={() => { setScopeLevel('space'); setSelectedTypeId(st.id); setSelectedSpaceId(s.id); setSidebarOpen(false); }}
+                                className={`flex-1 text-left px-3 py-1.5 rounded text-xs transition-colors ${scopeLevel === 'space' && selectedSpaceId === s.id ? 'bg-gold/10 text-gold font-medium' : 'hover:bg-luxury-hover text-cream-dark'}`}
                               >
                                 {s.name}
                               </button>
@@ -724,13 +741,13 @@ export default function AIStudioPage() {
                               <div className="hidden group-hover/space:flex items-center gap-0.5 mr-1">
                                 <button
                                   onClick={() => { setEditingSpaceId(s.id); setEditName(s.name); }}
-                                  className="p-0.5 text-gray-400 hover:text-gray-600 rounded"
+                                  className="p-0.5 text-cream-dark hover:text-gold rounded"
                                 >
                                   <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                 </button>
                                 <button
                                   onClick={() => handleDeleteSpace(s.id)}
-                                  className="p-0.5 text-gray-400 hover:text-red-500 rounded"
+                                  className="p-0.5 text-cream-dark hover:text-red-400 rounded"
                                 >
                                   <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                 </button>
@@ -739,7 +756,6 @@ export default function AIStudioPage() {
                           </div>
                         ))}
 
-                        {/* Add space button */}
                         {canManage && selectedTypeId === st.id && (
                           <>
                             {addingSpaceForType === st.id ? (
@@ -750,14 +766,14 @@ export default function AIStudioPage() {
                                   onChange={(e) => setNewSpaceName(e.target.value)}
                                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddSpace(st.id); if (e.key === 'Escape') setAddingSpaceForType(null); }}
                                   placeholder="Space name"
-                                  className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded outline-none focus:border-blue-500"
+                                  className="flex-1 text-xs px-2 py-1 border border-luxury-border rounded outline-none bg-transparent text-cream"
                                 />
-                                <button onClick={() => handleAddSpace(st.id)} className="text-xs text-blue-600 hover:text-blue-800 px-1">Add</button>
+                                <button onClick={() => handleAddSpace(st.id)} className="text-xs text-gold hover:text-gold-light px-1">Add</button>
                               </div>
                             ) : (
                               <button
                                 onClick={() => { setAddingSpaceForType(st.id); setNewSpaceName(''); }}
-                                className="text-xs text-gray-400 hover:text-blue-600 px-3 py-1"
+                                className="text-xs text-cream-dark hover:text-gold px-3 py-1"
                               >
                                 + Add space
                               </button>
@@ -769,7 +785,6 @@ export default function AIStudioPage() {
                   </div>
                 ))}
 
-                {/* Add space type button */}
                 {canManage && (
                   <>
                     {addingType ? (
@@ -780,14 +795,14 @@ export default function AIStudioPage() {
                           onChange={(e) => setNewTypeName(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') handleAddType(); if (e.key === 'Escape') setAddingType(false); }}
                           placeholder="Type name"
-                          className="flex-1 text-sm px-3 py-1.5 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
+                          className="flex-1 text-sm px-3 py-1.5 border border-luxury-border rounded-lg outline-none bg-transparent text-cream"
                         />
-                        <button onClick={handleAddType} className="text-sm text-blue-600 hover:text-blue-800 px-2">Add</button>
+                        <button onClick={handleAddType} className="text-sm text-gold hover:text-gold-light px-2">Add</button>
                       </div>
                     ) : (
                       <button
                         onClick={() => { setAddingType(true); setNewTypeName(''); }}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:text-blue-600 hover:bg-gray-50 rounded-lg"
+                        className="w-full text-left px-3 py-2 text-sm text-cream-dark hover:text-gold hover:bg-luxury-hover rounded-lg transition-colors"
                       >
                         + Add space type
                       </button>
@@ -800,14 +815,14 @@ export default function AIStudioPage() {
             {/* Generate tab sidebar: theme + person */}
             {activeTab === 'generate' && (
               <>
-                <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-                  <h3 className="font-semibold text-gray-900 mb-3">Theme</h3>
+                <div className="bg-luxury-card rounded-xl p-5 border border-gold/10">
+                  <h3 className="font-display font-semibold text-cream mb-3">Theme</h3>
                   <div className="space-y-1.5">
                     {THEMES.map((theme) => (
                       <button
                         key={theme.id}
                         onClick={() => setSelectedTheme(theme)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 ${selectedTheme?.id === theme.id ? 'bg-indigo-50 text-indigo-700 font-medium ring-1 ring-indigo-200' : 'hover:bg-gray-50 text-gray-600'}`}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${selectedTheme?.id === theme.id ? 'bg-gold/10 text-gold font-medium ring-1 ring-gold/20' : 'hover:bg-luxury-hover text-cream-muted'}`}
                       >
                         <span>{theme.emoji}</span>
                         <span>{theme.name}</span>
@@ -816,11 +831,11 @@ export default function AIStudioPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-                  <h3 className="font-semibold text-gray-900 mb-3">Person (optional)</h3>
+                <div className="bg-luxury-card rounded-xl p-5 border border-gold/10">
+                  <h3 className="font-display font-semibold text-cream mb-3">Person (optional)</h3>
                   <button
                     onClick={() => setSelectedPerson(null)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm mb-1 ${!selectedPerson ? 'bg-gray-100 font-medium' : 'hover:bg-gray-50 text-gray-500'}`}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm mb-1 transition-colors ${!selectedPerson ? 'bg-luxury-hover text-cream font-medium' : 'hover:bg-luxury-hover text-cream-dark'}`}
                   >
                     No person
                   </button>
@@ -828,16 +843,16 @@ export default function AIStudioPage() {
                     <button
                       key={person.id}
                       onClick={() => setSelectedPerson(person)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 ${selectedPerson?.id === person.id ? 'bg-purple-50 text-purple-700 font-medium' : 'hover:bg-gray-50 text-gray-600'}`}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${selectedPerson?.id === person.id ? 'bg-gold/10 text-gold font-medium' : 'hover:bg-luxury-hover text-cream-muted'}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={person.image_url} alt={person.name} className="w-6 h-6 rounded-full object-cover" />
+                      <img src={person.image_url} alt={person.name} className="w-6 h-6 rounded-full object-cover border border-gold/20" />
                       {person.name}
                     </button>
                   ))}
                   {people.length === 0 && (
-                    <p className="text-xs text-gray-400">
-                      <Link href={`/ai-studio/${hotelSlug}/people`} className="text-purple-600 hover:underline">Add people</Link>
+                    <p className="text-xs text-cream-dark">
+                      <Link href={`/ai-studio/${hotelSlug}/people`} className="text-gold hover:text-gold-light">Add people</Link>
                     </p>
                   )}
                 </div>
