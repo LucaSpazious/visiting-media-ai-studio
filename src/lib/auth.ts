@@ -58,11 +58,20 @@ export const authOptions: NextAuthOptions = {
           .single();
 
         if (!existingUser) {
+          // Auto-assign first available hotel for demo convenience
+          const { data: firstHotel } = await supabase
+            .from('vas_hotels')
+            .select('id')
+            .order('created_at')
+            .limit(1)
+            .single();
+
           await supabase.from('vas_users').insert({
             id: crypto.randomUUID(),
             email: user.email!,
             name: user.name,
             role: 'hotel_user',
+            hotel_id: firstHotel?.id ?? null,
           });
         }
       }

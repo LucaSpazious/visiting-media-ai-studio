@@ -41,9 +41,19 @@ export async function authorizeHotelAccess(
     return { session: { user } };
   }
 
-  // hotel_user must be assigned to this hotel
-  if (!user.hotel_id || user.hotel_id !== hotelId) {
+  // hotel_user with assigned hotel must match
+  if (user.hotel_id && user.hotel_id !== hotelId) {
     return { error: NextResponse.json({ error: 'Forbidden: no access to this hotel' }, { status: 403 }) };
+  }
+
+  // hotel_user without hotel_id: auto-assign to the requested hotel (demo fallback)
+  if (!user.hotel_id) {
+    const supabase = getServiceSupabase();
+    await supabase
+      .from('vas_users')
+      .update({ hotel_id: hotelId })
+      .eq('email', user.email);
+    user.hotel_id = hotelId;
   }
 
   return { session: { user } };
