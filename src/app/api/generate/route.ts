@@ -50,10 +50,11 @@ async function callFalWithRetry(
 }
 
 export async function POST(req: Request) {
+  // Let @fal-ai/client read FAL_KEY from environment automatically
+  // Explicit fal.config() can cause issues if the key format doesn't match what credentials expects
   console.log('[generate] FAL_KEY present:', !!process.env.FAL_KEY);
-  fal.config({
-    credentials: process.env.FAL_KEY,
-  });
+  console.log('[generate] FAL_KEY format:', process.env.FAL_KEY?.substring(0, 20) + '...');
+  console.log('[generate] FAL_KEY length:', process.env.FAL_KEY?.length);
 
   const { photoId, hotelId, theme, prompt, personImageUrl, personId, imageUrl, projectId } =
     await req.json();
