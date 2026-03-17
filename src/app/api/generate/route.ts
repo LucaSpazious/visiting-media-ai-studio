@@ -50,11 +50,19 @@ async function callFalWithRetry(
 }
 
 export async function POST(req: Request) {
-  // Let @fal-ai/client read FAL_KEY from environment automatically
-  // Explicit fal.config() can cause issues if the key format doesn't match what credentials expects
-  console.log('[generate] FAL_KEY present:', !!process.env.FAL_KEY);
-  console.log('[generate] FAL_KEY format:', process.env.FAL_KEY?.substring(0, 20) + '...');
-  console.log('[generate] FAL_KEY length:', process.env.FAL_KEY?.length);
+  const falKey = process.env.FAL_KEY;
+  console.log('[generate] FAL_KEY present:', !!falKey);
+  console.log('[generate] FAL_KEY format:', falKey?.substring(0, 20) + '...');
+  console.log('[generate] FAL_KEY length:', falKey?.length);
+  console.log('[generate] FAL_KEY starts with key_:', falKey?.startsWith('key_'));
+
+  // Let fal.ai SDK read FAL_KEY from environment automatically
+  // Only set explicit credentials as fallback
+  if (falKey) {
+    fal.config({
+      credentials: falKey,
+    });
+  }
 
   const { photoId, hotelId, theme, prompt, personImageUrl, personId, imageUrl, projectId } =
     await req.json();

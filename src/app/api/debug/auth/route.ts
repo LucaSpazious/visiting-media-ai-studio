@@ -11,9 +11,15 @@ export async function GET() {
     SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
     FAL_KEY: !!process.env.FAL_KEY,
-    FAL_KEY_length: process.env.FAL_KEY?.length || 0,
-    FAL_KEY_prefix: process.env.FAL_KEY?.substring(0, 20) + '...' || '(not set)',
-    FAL_KEY_has_colon: process.env.FAL_KEY?.includes(':') || false,
+    FAL_KEY_format: process.env.FAL_KEY
+      ? {
+          length: process.env.FAL_KEY.length,
+          starts_with_key_: process.env.FAL_KEY.startsWith('key_'),
+          prefix: process.env.FAL_KEY.substring(0, 12) + '...',
+          contains_colon: process.env.FAL_KEY.includes(':'),
+          parts_if_colon: process.env.FAL_KEY.includes(':') ? process.env.FAL_KEY.split(':').length : 1,
+        }
+      : '(not set)',
     NODE_ENV: process.env.NODE_ENV,
     VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL || '(not set)',
     computed_callback_url: `${process.env.NEXTAUTH_URL || `https://${process.env.VERCEL_URL}` || 'UNKNOWN'}/api/auth/callback/google`,
