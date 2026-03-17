@@ -50,6 +50,7 @@ async function callFalWithRetry(
 }
 
 export async function POST(req: Request) {
+  console.log('[generate] FAL_KEY present:', !!process.env.FAL_KEY);
   fal.config({
     credentials: process.env.FAL_KEY,
   });
